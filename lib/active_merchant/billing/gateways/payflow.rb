@@ -12,26 +12,28 @@ module ActiveMerchant #:nodoc:
       self.supported_cardtypes = [:visa, :master, :american_express, :jcb, :discover, :diners_club]
       self.homepage_url = 'https://www.paypal.com/cgi-bin/webscr?cmd=_payflow-pro-overview-outside'
       self.display_name = 'PayPal Payflow Pro'
-    
-      def authorize(money, credit_card_or_reference, options = {})
-        request = build_sale_or_authorization_request(:authorization, money, credit_card_or_reference, options)
+
+      # Note: Payflow does not support this for ACH transactions
+      def authorize(money, cc_or_ref, options = {})
+        raise ActiveMerchantError, 'Illegal action: cannot perform an authorization for ACH' if cc_or_ref.class.to_s =~ /Check$/
+        request = build_sale_or_authorization_request(:authorization, money, cc_or_ref, options)
       
         commit(request)
       end
       
-      def purchase(money, credit_card_or_reference, options = {})
-        request = build_sale_or_authorization_request(:purchase, money, credit_card_or_reference, options)
+      def purchase(money, cc_or_ref_or_check, options = {})
+        request = build_sale_or_authorization_request(:purchase, money, cc_or_ref_or_check, options)
 
         commit(request)
       end
       
-      def credit(money, identification_or_credit_card, options = {})
-        if identification_or_credit_card.is_a?(String)
+      def credit(money, cc_or_ref_or_check, options = {})
+        if cc_or_ref_or_check.is_a?(String)
           # Perform referenced credit
-          request = build_reference_request(:credit, money, identification_or_credit_card, options)
+          request = build_reference_request(:credit, money, cc_or_ref_or_check, options)
         else
           # Perform non-referenced credit
-          request = build_credit_card_request(:credit, money, identification_or_credit_card, options)
+          request = build_credit_card_or_check_request(:credit, money, cc_or_ref_or_check, options)
         end
         
         commit(request)
@@ -72,11 +74,11 @@ module ActiveMerchant #:nodoc:
       end
       
       private
-      def build_sale_or_authorization_request(action, money, credit_card_or_reference, options)
-        if credit_card_or_reference.is_a?(String)
-          build_reference_sale_or_authorization_request(action, money, credit_card_or_reference, options)
+      def build_sale_or_authorization_request(action, money, cc_or_ref_or_check, options)
+        if cc_or_ref_or_check.is_a?(String) # String => reference
+          build_reference_sale_or_authorization_request(action, money, cc_or_ref_or_check, options)
         else  
-          build_credit_card_request(action, money, credit_card_or_reference, options)
+          build_credit_card_or_check_request(action, money, cc_or_ref_or_check, options)
         end  
       end
       
@@ -97,8 +99,8 @@ module ActiveMerchant #:nodoc:
         xml.target!
       end
       
-      def build_credit_card_request(action, money, credit_card, options)
-        xml = Builder::XmlMarkup.new 
+      def build_credit_card_or_check_request(action, money, credit_card_or_check, options)
+        xml = Builder::XmlMarkup.new
         xml.tag! TRANSACTIONS[action] do
           xml.tag! 'PayData' do
             xml.tag! 'Invoice' do
@@ -112,13 +114,29 @@ module ActiveMerchant #:nodoc:
               
               xml.tag! 'TotalAmt', amount(money), 'Currency' => options[:currency] || currency(money)
             end
-            
-            xml.tag! 'Tender' do
-              add_credit_card(xml, credit_card)
-            end
+
+            add_tender(xml, credit_card_or_check)
           end 
         end
         xml.target!
+      end
+
+      def add_tender(xml, tender)
+        xml.tag! 'Tender' do
+          case tender.class.to_s
+          when /CreditCard$/ then add_credit_card(xml, tender)
+          when /Check$/      then add_check(xml, tender)
+          end
+        end
+      end
+    
+      def add_check(xml, check)
+        xml.tag! 'ACH' do
+          xml.tag! 'AcctType', check.account_type[0..0].upcase
+          xml.tag! 'AcctNum',  check.account_number
+          xml.tag! 'ABA',      check.routing_number
+          xml.tag! 'AuthType', 'WEB'
+        end
       end
     
       def add_credit_card(xml, credit_card)

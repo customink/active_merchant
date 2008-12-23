@@ -11,10 +11,11 @@ class PayflowTest < Test::Unit::TestCase
     
     @amount = 100
     @credit_card = credit_card('4242424242424242')
+    @check = check
     @options = { :billing_address => address }
   end
   
-  def test_successful_authorization
+  def test_successful_authorization_for_credit_card
     @gateway.stubs(:ssl_post).returns(successful_authorization_response)
     
     assert response = @gateway.authorize(@amount, @credit_card, @options)
@@ -23,7 +24,15 @@ class PayflowTest < Test::Unit::TestCase
     assert response.test?
     assert_equal "VUJN1A6E11D9", response.authorization
   end
-  
+
+  def test_authorization_for_check_raises_exception
+    @gateway.stubs(:ssl_post).returns(successful_authorization_response)
+    
+    assert_raises ActiveMerchant::ActiveMerchantError do
+      @gateway.authorize(@amount, @check, @options)
+    end
+  end
+
   def test_failed_authorization
     @gateway.stubs(:ssl_post).returns(failed_authorization_response)
     
@@ -110,7 +119,7 @@ class PayflowTest < Test::Unit::TestCase
     assert_equal 'test', express.options[:login]
     assert_equal 'password', express.options[:password]
   end
-
+  
   def test_default_currency
     assert_equal 'USD', PayflowGateway.default_currency
   end
