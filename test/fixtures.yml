@@ -254,6 +254,10 @@ sage:
   login: login
   password: password
 
+secure_net:
+  login: 1001450
+  password: JhpB7MNl7DFK
+
 secure_pay:
   login: LOGIN
   password: PASSWORD
