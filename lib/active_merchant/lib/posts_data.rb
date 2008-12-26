@@ -58,8 +58,7 @@ module ActiveMerchant #:nodoc:
 
       retry_exceptions do 
         begin
-          res = http.post(uri.request_uri, data, headers)
-          res.body
+          http.post(uri.request_uri, data, headers).body
         rescue EOFError => e
           raise ConnectionError, "The remote server dropped the connection"
         rescue Errno::ECONNRESET => e
