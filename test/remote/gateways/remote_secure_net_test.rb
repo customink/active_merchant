@@ -9,9 +9,10 @@ class RemoteSecureNetTest < Test::Unit::TestCase
     @amount = 100
     @credit_card = credit_card('4000100011112224')
     @declined_card = credit_card('4000300011112220')
+    order_id = ActiveMerchant::Utils.generate_unique_id
     
     @options = { 
-      :order_id => '1',
+      :order_id => "#{order_id}",
       :billing_address => address,
       :description => 'Store Purchase'
     }
@@ -35,9 +36,9 @@ class RemoteSecureNetTest < Test::Unit::TestCase
     amount = @amount
     assert auth = @gateway.authorize(amount, @credit_card, @options)
     assert_success auth
-    assert_equal 'Success', auth.message
+    assert_equal 'Approved', auth.message
     assert auth.authorization
-    assert capture = @gateway.capture(amount, auth.authorization)
+    assert capture = @gateway.capture(amount, auth.authorization, @options)
     assert_success capture
   end
 
