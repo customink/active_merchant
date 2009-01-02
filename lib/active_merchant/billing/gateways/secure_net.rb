@@ -25,7 +25,8 @@ module ActiveMerchant #:nodoc:
       end  
 
       # Requires :order_id in the options hash.
-      def authorize(money, creditcard, options = {})                
+      def authorize(money, creditcard, options = {})
+        requires!(options, :order_id)
         auth_or_purchase('AUTH_ONLY', money, creditcard, options)
       end
 
@@ -47,24 +48,37 @@ module ActiveMerchant #:nodoc:
           xml.Card_code(creditcard.verification_value)
         end
         commit(@xml.target!)
-      end                       
-    
-      def capture(money, authorization, options = {})
-       # requires!(options, :order_id)
+      end
+
+      # TODO: I have a feeling the CREDIT and VOID calls on
+      # SecureNet's side require a transaction ID, not an auth
+      # code, but the Response object doesn't have a way to carry
+      # a transaction ID.
+      #
+      # Requires an order_id in the options hash
+      def credit(money, transaction_id, options = {})
+        requires!(options, :order_id)
         xml_request(options) do |xml|
           @xml = xml
-          xml.Type('CAPTURE_ONLY')
+          xml.Type('CREDIT')
           xml.Amount(amount(money))
-          xml.Auth_code(authorization)
-#          xml.First_name(creditcard.first_name)
-#          xml.Last_name(creditcard.last_name)
-#          xml.Card_num(creditcard.number)
-#          xml.Exp_date(expdate(creditcard))
-#          xml.Card_code(creditcard.verification_value)
+          xml.Trans_id(transaction_id)
         end
         commit(@xml.target!)
       end
-    
+
+      # Requires an order_id in the options hash
+      def void(money, auth_code, options = {})
+        requires!(options, :order_id)
+        xml_request(options) do |xml|
+          @xml = xml
+          xml.Type('VOID')
+          xml.Amount(amount(money))
+          xml.Auth_code(auth_code)
+        end
+        commit(@xml.target!)
+      end
+
       private
 
       def message_from(response)
@@ -96,7 +110,7 @@ module ActiveMerchant #:nodoc:
               xml.oTi do
                 xml.SecurenetID(@options[:login])
                 xml.SecureKey(@options[:password])
-                xml.Test('TRUE') if test?
+                xml.Test('FALSE') # This is hard-coded for a reason.
                 xml.OrderID(options[:order_id]) unless options[:order_id].blank?
                 xml.Method('CC')
                 unless @address.blank?
