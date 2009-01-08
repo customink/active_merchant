@@ -95,15 +95,15 @@ class RemoteSecureNetTest < Test::Unit::TestCase
   end
   
   def test_check_credit_with_bogus_reference
-    assert credit = @gateway.credit(@amount, 'DNE', @check, @options)
+    assert credit = @gateway.credit(@amount, '123456', @check, @options)
     assert_failure credit
-    assert_equal 'GENERAL ERROR', credit.message
+    assert_equal 'TRANSACTION ID DOES NOT EXIST FOR CREDIT', credit.message
   end
 
   def test_check_void_with_bogus_reference
-    assert void = @gateway.void(@amount, 'DNE', @check, @options)
+    assert void = @gateway.void(@amount, '123456', @check, @options)
     assert_failure void
-    assert_equal 'GENERAL ERROR', void.message
+    assert_equal 'TRANSACTION ID DOES NOT EXIST FOR VOID', void.message
   end
 
   def test_check_credit_with_missing_reference
@@ -329,16 +329,28 @@ class RemoteSecureNetTest < Test::Unit::TestCase
     assert_equal 'Approved', void.message
   end
 
+  def test_credit_card_capture_with_bogus_reference
+    assert capture = @gateway.capture(@amount, '123456', @credit_card, @options)
+    assert_failure capture
+    assert_equal 'TRANSACTION ID DOES NOT EXIST FOR PRIOR_AUTH_CAPTURE', capture.message
+  end
+
   def test_credit_card_credit_with_bogus_reference
-    assert credit = @gateway.credit(@amount, 'DNE', @credit_card, @options)
+    assert credit = @gateway.credit(@amount, '123456', @credit_card, @options)
     assert_failure credit
-    assert_equal 'GENERAL ERROR', credit.message
+    assert_equal 'TRANSACTION ID DOES NOT EXIST FOR CREDIT', credit.message
   end
 
   def test_credit_card_void_with_bogus_reference
-    assert void = @gateway.void(@amount, 'DNE', @credit_card, @options)
+    assert void = @gateway.void(@amount, '123456', @credit_card, @options)
     assert_failure void
-    assert_equal 'GENERAL ERROR', void.message
+    assert_equal 'TRANSACTION ID DOES NOT EXIST FOR VOID', void.message
+  end
+
+  def test_credit_card_capture_with_missing_reference
+    assert capture = @gateway.capture(@amount, nil, @credit_card, @options)
+    assert_failure capture
+    assert_equal 'PREVIOUS TRANSACTION ID IS REQUIRED', capture.message
   end
 
   def test_credit_card_credit_with_missing_reference
@@ -352,14 +364,6 @@ class RemoteSecureNetTest < Test::Unit::TestCase
     assert_failure void
     assert_equal 'PREVIOUS TRANSACTION ID IS REQUIRED', void.message
   end
-
-  
-
-#  def test_credit_card_failed_capture
-#    assert response = @gateway.capture(@amount, '')
-#    assert_failure response
-#    assert_equal 'REPLACE WITH GATEWAY FAILURE MESSAGE', response.message
-#  end
 
   def test_invalid_login
     gateway = SecureNetGateway.new(:login => '', :password => '')
