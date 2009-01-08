@@ -258,6 +258,12 @@ secure_net:
   login: login
   password: password
 
+# This is for the SecureNet Virtual Terminal login, these credentials
+# are needed by the remote test. See comments there for more info.
+secure_net_virtual_terminal:
+  login: login
+  password: password
+
 secure_pay:
   login: LOGIN
   password: PASSWORD

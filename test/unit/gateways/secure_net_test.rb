@@ -1,5 +1,27 @@
 require File.dirname(__FILE__) + '/../../test_helper'
 
+# TEST DATA
+# To run tests in our test environment make sure to set Virtual Terminal to ‘LIVE MODE’, the ‘TEST’ parameter
+# as ‘FALSE’, and send the transactions to https://certify.securenet.com/payment.asmx
+# To get approved transaction results use these card numbers:
+#   370000000000002   American Express
+#   6011000000000012  Discover
+#   5424000000000015  MasterCard
+#   4007000000027     Visa
+# For AVS Match: 20008
+# For CVV/CID Approval: 568
+# CVV/CID Visa: 999
+# CVV/CID MasterCard: 998
+# Test Credit Card Numbers for declined results:
+#   5105105105105100  Master Card
+#   5555555555554444  Master Card
+#   4111111111111111  VISA
+#   4012888888881881  VISA
+#   378282246310005   American Express
+#   371449635398431   American Express
+# Valid Routing Numbers:
+#   222371863, 307075259, 052000113
+
 class SecureNetTest < Test::Unit::TestCase
   def setup
     @gateway = SecureNetGateway.new(

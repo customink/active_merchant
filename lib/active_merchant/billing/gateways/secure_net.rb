@@ -26,57 +26,55 @@ module ActiveMerchant #:nodoc:
 
       # Requires :order_id in the options hash.
       def authorize(money, creditcard, options = {})
-        requires!(options, :order_id)
+        raise ActiveMerchantError if creditcard.is_a? ActiveMerchant::Billing::Check
         auth_or_purchase('AUTH_ONLY', money, creditcard, options)
       end
+      
+      def capture(money, transaction_id, creditcard, options = {})
+        xml_request(options) do |xml|
+          xml.Type('PRIOR_AUTH_CAPTURE')
+          xml.Amount(amount(money)) unless money.nil?
+          xml.Trans_id(transaction_id)
+          add_tender(xml, creditcard)
+        end
+      end
 
-      def purchase(money, creditcard, options = {})
-        # Requires :order_id in the options hash.
-        requires!(options, :order_id)
-        auth_or_purchase('AUTH_CAPTURE', money, creditcard, options)
+      def purchase(money, creditcard_or_check, options = {})
+        auth_or_purchase('AUTH_CAPTURE', money, creditcard_or_check, options)
       end
             
-      def auth_or_purchase(type, money, creditcard, options = {})        
+      def auth_or_purchase(type, money, creditcard_or_check, options = {})        
         xml_request(options) do |xml|
-          @xml = xml
           xml.Type(type)
           xml.Amount(amount(money))
-          xml.First_name(creditcard.first_name)
-          xml.Last_name(creditcard.last_name)
-          xml.Card_num(creditcard.number)
-          xml.Exp_date(expdate(creditcard))
-          xml.Card_code(creditcard.verification_value)
+          add_tender(xml, creditcard_or_check)
         end
-        commit(@xml.target!)
       end
 
-      # TODO: I have a feeling the CREDIT and VOID calls on
-      # SecureNet's side require a transaction ID, not an auth
-      # code, but the Response object doesn't have a way to carry
-      # a transaction ID.
-      #
-      # Requires an order_id in the options hash
-      def credit(money, transaction_id, options = {})
-        requires!(options, :order_id)
+      def credit(money, transaction_id, creditcard_or_check, options = {})
         xml_request(options) do |xml|
-          @xml = xml
           xml.Type('CREDIT')
+          xml.Amount(amount(money))
+          add_tender(xml, creditcard_or_check)
+          xml.Trans_id(transaction_id)
+        end
+      end
+
+      def void(money, transaction_id, creditcard_or_check, options = {})
+        xml_request(options) do |xml|
+          xml.Type('VOID')
+          xml.Amount(amount(money))
+          add_tender(xml, creditcard_or_check)
+          xml.Trans_id(transaction_id)
+        end
+      end
+
+      def credit_or_void(type, money, transaction_id, options = {})
+        xml_request(options) do |xml|
+          xml.Type(type)
           xml.Amount(amount(money))
           xml.Trans_id(transaction_id)
         end
-        commit(@xml.target!)
-      end
-
-      # Requires an order_id in the options hash
-      def void(money, auth_code, options = {})
-        requires!(options, :order_id)
-        xml_request(options) do |xml|
-          @xml = xml
-          xml.Type('VOID')
-          xml.Amount(amount(money))
-          xml.Auth_code(auth_code)
-        end
-        commit(@xml.target!)
       end
 
       private
@@ -94,13 +92,17 @@ module ActiveMerchant #:nodoc:
       end
 
       def xml_request(options = {})
-        xml = Builder::XmlMarkup.new
+        # requires!(options, :order_id)
+        
         @address = options[:billing_address] || options[:address]
         # SecureNet only allows for one line of address, and it can be no longer than
         # 60 characters in length.
         unless @address.blank?
-          [@address[:address1],@address[:address2]].compact.join(", ")[0...60]
+          @address[:address1] = @address.values_at(:address1, :address2).compact.join(", ")[0...60]
+          @address[:address2] = nil
         end
+        
+        xml = Builder::XmlMarkup.new
         xml.instruct!
         xml.tag!('soap12:Envelope', 'xmlns:xsi' => 'http://www.w3.org/2001/XMLSchema-instance',
           'xmlns:xsd' => 'http://www.w3.org/2001/XMLSchema',
@@ -111,8 +113,7 @@ module ActiveMerchant #:nodoc:
                 xml.SecurenetID(@options[:login])
                 xml.SecureKey(@options[:password])
                 xml.Test('FALSE') # This is hard-coded for a reason.
-                xml.OrderID(options[:order_id]) unless options[:order_id].blank?
-                xml.Method('CC')
+                xml.OrderID(options[:order_id] || ActiveMerchant::Utils.generate_unique_id)
                 unless @address.blank?
                   xml.Address(@address[:address1])
                   xml.City(@address[:city])
@@ -126,22 +127,39 @@ module ActiveMerchant #:nodoc:
             end
           end
         end
-        xml
+        commit(xml.target!)
+      end
+
+      def add_tender(xml, creditcard_or_check)
+        if creditcard_or_check.type == 'check'
+          check = creditcard_or_check
+          raise ActiveMerchantError, 'SecureNet requires a bank name for ACH transactions' if check.bank_name.blank?
+          xml.Method('ECHECK')
+          xml.Bank_acct_name(check.name)
+          xml.Bank_acct_num(check.account_number)
+          xml.Bank_aba_code(check.routing_number)
+          xml.Bank_acct_type(check.account_type.upcase)
+          xml.Bank_name(check.bank_name)
+        else
+          cc = creditcard_or_check
+          xml.Method('CC')
+          xml.Card_num(cc.number)
+          xml.Exp_date(expdate(cc))
+          xml.Card_code(cc.verification_value) unless cc.verification_value.blank?
+        end
       end
 
       def commit(xml)
-
         response = parse( ssl_post(test? ? TEST_URL : LIVE_URL, xml,
             {'Content-Length' => xml.length.to_s,
              'Content-Type' => 'text/xml'}) )
 
         Response.new(response[:response_code] == "1", message_from(response), response,
-          :authorization => response[:approval_code],
+          :authorization => response[:transaction_id],
           :test => test?,
           :cvv_result => response[:cavv_response_code],
           :avs_result => { :code => response[:avs_result_code] }
         )
-
       end
 
       def parse(data)
