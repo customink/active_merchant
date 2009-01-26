@@ -16,6 +16,8 @@ module ActiveMerchant #:nodoc:
       # The name of the gateway
       self.display_name = 'SecureNet'
 
+      TaxNotIncluded, TaxIncluded, TaxExempt = 0, 1, 2
+
       # Requires :login => 'your SecurenetID' and :password => 'your SecureKey'
       # Optionally, pass :test => true to run all operations in test mode.
       def initialize(options = {})
@@ -92,8 +94,6 @@ module ActiveMerchant #:nodoc:
       end
 
       def xml_request(options = {})
-        # requires!(options, :order_id)
-        
         @address = options[:billing_address] || options[:address]
         # SecureNet only allows for one line of address, and it can be no longer than
         # 60 characters in length.
@@ -107,20 +107,27 @@ module ActiveMerchant #:nodoc:
         xml.tag!('soap12:Envelope', 'xmlns:xsi' => 'http://www.w3.org/2001/XMLSchema-instance',
           'xmlns:xsd' => 'http://www.w3.org/2001/XMLSchema',
           'xmlns:soap12' => 'http://www.w3.org/2003/05/soap-envelope') do
-          xml.tag!('soap12:Body') do
-            xml.tag!('Process', 'xmlns' => 'https://gateway.securenet.com/') do
+          xml.tag!( 'soap12:Body' ) do
+            xml.tag!( 'Process', 'xmlns' => 'https://gateway.securenet.com/' ) do
               xml.oTi do
-                xml.SecurenetID(@options[:login])
-                xml.SecureKey(@options[:password])
-                xml.Test('FALSE') # This is hard-coded for a reason.
-                xml.OrderID(options[:order_id] || ActiveMerchant::Utils.generate_unique_id)
+                xml.SecurenetID( @options[:login] )
+                xml.SecureKey( @options[:password] )
+                xml.Test( 'FALSE' ) # This is hard-coded for a reason, don't change it even for testing
+                xml.OrderID( options[:order_id] || ActiveMerchant::Utils.generate_unique_id )
                 unless @address.blank?
-                  xml.Address(@address[:address1])
-                  xml.City(@address[:city])
-                  xml.State(@address[:state])
-                  xml.Zip(@address[:zip])
-                  xml.Country(@address[:country]) unless @address[:country].blank?
-                  xml.Phone(@address[:phone]) unless @address[:phone].blank?
+                  xml.Address( @address[:address1] )
+                  xml.City(    @address[:city] )
+                  xml.State(   @address[:state] )
+                  xml.Zip(     @address[:zip] )
+                  xml.Country( @address[:country] ) unless @address[:country].blank?
+                  xml.Phone(   @address[:phone] ) unless @address[:phone].blank?
+                end
+                unless (level2 = options[:level2]).blank?
+                  xml.Level2_Tax(      level2[:tax] ) unless level2[:tax].blank?
+                  xml.Level2_TaxFlag(  level2[:tax_flag] ) unless level2[:tax_flag].blank?
+                  xml.Level2_Freight(  level2[:freight] ) unless level2[:freight].blank?
+                  xml.Level2_Duty(     level2[:duty] ) unless level2[:duty].blank?
+                  xml.Level2_PONumber( level2[:po_number] ) unless level2[:po_number].blank?
                 end
                 yield(xml)
               end
@@ -134,22 +141,23 @@ module ActiveMerchant #:nodoc:
         if creditcard_or_check.type == 'check'
           check = creditcard_or_check
           raise ActiveMerchantError, 'SecureNet requires a bank name for ACH transactions' if check.bank_name.blank?
-          xml.Method('ECHECK')
-          xml.Bank_acct_name(check.name)
-          xml.Bank_acct_num(check.account_number)
-          xml.Bank_aba_code(check.routing_number)
-          xml.Bank_acct_type(check.account_type.upcase)
-          xml.Bank_name(check.bank_name)
+          xml.Method( 'ECHECK' )
+          xml.Bank_acct_name( check.name )
+          xml.Bank_acct_num(  check.account_number )
+          xml.Bank_aba_code(  check.routing_number )
+          xml.Bank_acct_type( check.account_type.upcase )
+          xml.Bank_name(      check.bank_name )
         else
           cc = creditcard_or_check
-          xml.Method('CC')
-          xml.Card_num(cc.number)
-          xml.Exp_date(expdate(cc))
-          xml.Card_code(cc.verification_value) unless cc.verification_value.blank?
+          xml.Method( 'CC' )
+          xml.Card_num(  cc.number )
+          xml.Exp_date(  expdate( cc ) )
+          xml.Card_code( cc.verification_value ) unless cc.verification_value.blank?
         end
       end
 
       def commit(xml)
+        # puts xml
         response = parse( ssl_post(test? ? TEST_URL : LIVE_URL, xml,
             {'Content-Length' => xml.length.to_s,
              'Content-Type' => 'text/xml'}) )
@@ -163,6 +171,7 @@ module ActiveMerchant #:nodoc:
       end
 
       def parse(data)
+        # puts data
         response = {}
         xml = REXML::Document.new(data)
         root = REXML::XPath.first(xml, "//ProcessResult")

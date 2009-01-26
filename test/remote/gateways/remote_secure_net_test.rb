@@ -5,7 +5,7 @@ require File.dirname(__FILE__) + '/../../test_helper'
 # as ‘FALSE’, and send the transactions to https://certify.securenet.com/payment.asmx
 # To get approved transaction results use these card numbers:
 #   370000000000002   American Express
-#   6011000000000012  Discover
+#   601`00000012  Discover
 #   5424000000000015  MasterCard
 #   4007000000027     Visa
 # For AVS Match: 20008
@@ -37,7 +37,6 @@ class RemoteSecureNetTest < Test::Unit::TestCase
     @declined_amount = 112
     @credit_card = credit_card('4111111111111111', :verification_value => '999')
     @check = check(:bank_name => 'Greenery', :routing_number => '222371863')
-    # @credit_card = credit_card('4007000000027', :verification_value => '999')
     
     @options = { 
       :billing_address => address,
@@ -150,6 +149,18 @@ class RemoteSecureNetTest < Test::Unit::TestCase
     assert_success capture
     assert_equal 'Approved', capture.message
   end
+
+  def test_credit_card_authorize_and_capture_amount_exact_with_level2
+    @credit_card = credit_card('5581111111111119', :month => 12, :year => 2010, :type => 'mastercard', :verification_value => nil)
+    @options.merge!(:level2 => { :tax => '1.00', :tax_flag => 1, :po_number => '12345' })
+    assert auth = @gateway.authorize(@amount, @credit_card, @options)
+    assert_success auth
+    assert_equal 'Approved', auth.message
+    assert capture = @gateway.capture(@amount, auth.authorization, @credit_card, @options)
+    assert_success capture
+    assert_equal 'Approved', capture.message
+  end
+
 
   # This fails because the system is not functioning as the docuemtnation specifies.
   # A Credit transaction that has no Amount, should Credit for the amount of 
@@ -307,26 +318,22 @@ class RemoteSecureNetTest < Test::Unit::TestCase
     assert_equal 'TRANSACTION AMOUNT IS REQUIRED', void.message
   end
 
-  # This test doesn't make sense, how can you void for less than the original amount?
-  # Easy, because they require Amount but don't actually check it, of course
   def test_credit_card_purchase_and_void_amount_low
     assert purchase = @gateway.purchase(@amount, @credit_card, @options)
     assert_success purchase
     assert_equal 'Approved', purchase.message
     assert void = @gateway.void(@amount-100, purchase.authorization, @credit_card, @options)
-    assert_success void
-    assert_equal 'Approved', void.message
+    assert_failure void
+    assert_equal 'VOIDED AMOUNT CANNOT BE DIFFERENT THAN PREVIOUSLY AUTHORIZED AMOUNT', void.message
   end
 
-  # This test doesn't make sense, how can you void for more than the original amount?
-  # Easy, because they require Amount but don't actually check it, of course
   def test_credit_card_purchase_and_void_amount_high
     assert purchase = @gateway.purchase(@amount, @credit_card, @options)
     assert_success purchase
     assert_equal 'Approved', purchase.message
     assert void = @gateway.void(@amount*2, purchase.authorization, @credit_card, @options)
-    assert_success void
-    assert_equal 'Approved', void.message
+    assert_failure void
+    assert_equal 'VOIDED AMOUNT CANNOT BE DIFFERENT THAN PREVIOUSLY AUTHORIZED AMOUNT', void.message
   end
 
   def test_credit_card_capture_with_bogus_reference
