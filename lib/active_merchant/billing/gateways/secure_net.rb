@@ -122,13 +122,11 @@ module ActiveMerchant #:nodoc:
                   xml.Country( @address[:country] ) unless @address[:country].blank?
                   xml.Phone(   @address[:phone] ) unless @address[:phone].blank?
                 end
-                unless (level2 = options[:level2]).blank?
-                  xml.Level2_Tax(      level2[:tax] ) unless level2[:tax].blank?
-                  xml.Level2_TaxFlag(  level2[:tax_flag] ) unless level2[:tax_flag].blank?
-                  xml.Level2_Freight(  level2[:freight] ) unless level2[:freight].blank?
-                  xml.Level2_Duty(     level2[:duty] ) unless level2[:duty].blank?
-                  xml.Level2_PONumber( level2[:po_number] ) unless level2[:po_number].blank?
-                end
+                xml.Level2_Tax(      options[:tax_amount] ) unless options[:tax_amount].blank?
+                xml.Level2_TaxFlag(  options[:tax_status] ) unless options[:tax_status].blank?
+                xml.Level2_Freight(  options[:freight] )    unless options[:freight].blank?
+                xml.Level2_Duty(     options[:duty] )       unless options[:duty].blank?
+                xml.Level2_PONumber( options[:po_number] )  unless options[:po_number].blank?
                 yield(xml)
               end
             end

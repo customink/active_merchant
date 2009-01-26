@@ -152,7 +152,7 @@ class RemoteSecureNetTest < Test::Unit::TestCase
 
   def test_credit_card_authorize_and_capture_amount_exact_with_level2
     @credit_card = credit_card('5581111111111119', :month => 12, :year => 2010, :type => 'mastercard', :verification_value => nil)
-    @options.merge!(:level2 => { :tax => '1.00', :tax_flag => 1, :po_number => '12345' })
+    @options.merge!({ :tax_amount => '1.00', :tax_status => 1, :po_number => '12345' })
     assert auth = @gateway.authorize(@amount, @credit_card, @options)
     assert_success auth
     assert_equal 'Approved', auth.message
@@ -160,7 +160,6 @@ class RemoteSecureNetTest < Test::Unit::TestCase
     assert_success capture
     assert_equal 'Approved', capture.message
   end
-
 
   # This fails because the system is not functioning as the docuemtnation specifies.
   # A Credit transaction that has no Amount, should Credit for the amount of 
