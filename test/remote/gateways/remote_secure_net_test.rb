@@ -150,7 +150,34 @@ class RemoteSecureNetTest < Test::Unit::TestCase
     assert_equal 'Approved', capture.message
   end
 
-  def test_credit_card_authorize_and_capture_amount_exact_with_level2
+  def test_credit_card_purchase_and_credit_using_last_four_digits
+    assert purchase = @gateway.purchase(@amount, @credit_card, @options)
+    assert_success purchase
+    assert_equal 'Approved', purchase.message
+    settle_transactions
+    @credit_card = credit_card(@credit_card.last_digits)
+    assert credit = @gateway.credit(@amount, purchase.authorization, @credit_card, @options)
+    assert_success credit
+    assert_equal 'Approved', credit.message
+  end
+
+  def test_credit_card_authorize_level2
+    @credit_card = credit_card('5581111111111119', :month => 12, :year => 2010, :type => 'mastercard', :verification_value => nil)
+    @options.merge!({ :tax_amount => '1.00', :tax_status => 1, :po_number => '12345' })
+    assert auth = @gateway.authorize(@amount, @credit_card, @options)
+    assert_success auth
+    assert_equal 'Approved', auth.message
+  end
+
+  def test_credit_card_purchase_level2
+    @credit_card = credit_card('5581111111111119', :month => 12, :year => 2010, :type => 'mastercard', :verification_value => nil)
+    @options.merge!({ :tax_amount => '1.00', :tax_status => 1, :po_number => '12345' })
+    assert auth = @gateway.authorize(@amount, @credit_card, @options)
+    assert_success auth
+    assert_equal 'Approved', auth.message
+  end
+
+  def test_credit_card_authorize_and_capture_with_level2
     @credit_card = credit_card('5581111111111119', :month => 12, :year => 2010, :type => 'mastercard', :verification_value => nil)
     @options.merge!({ :tax_amount => '1.00', :tax_status => 1, :po_number => '12345' })
     assert auth = @gateway.authorize(@amount, @credit_card, @options)
@@ -160,6 +187,7 @@ class RemoteSecureNetTest < Test::Unit::TestCase
     assert_success capture
     assert_equal 'Approved', capture.message
   end
+
 
   # This fails because the system is not functioning as the docuemtnation specifies.
   # A Credit transaction that has no Amount, should Credit for the amount of 

@@ -149,13 +149,12 @@ module ActiveMerchant #:nodoc:
           cc = creditcard_or_check
           xml.Method( 'CC' )
           xml.Card_num(  cc.number )
-          xml.Exp_date(  expdate( cc ) )
+          xml.Exp_date(  expdate( cc ) ) unless cc.year.nil? || cc.month.nil?
           xml.Card_code( cc.verification_value ) unless cc.verification_value.blank?
         end
       end
 
       def commit(xml)
-        # puts xml
         response = parse( ssl_post(test? ? TEST_URL : LIVE_URL, xml,
             {'Content-Length' => xml.length.to_s,
              'Content-Type' => 'text/xml'}) )
@@ -169,7 +168,6 @@ module ActiveMerchant #:nodoc:
       end
 
       def parse(data)
-        # puts data
         response = {}
         xml = REXML::Document.new(data)
         root = REXML::XPath.first(xml, "//ProcessResult")
