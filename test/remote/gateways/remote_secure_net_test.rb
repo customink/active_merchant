@@ -37,6 +37,12 @@ class RemoteSecureNetTest < Test::Unit::TestCase
     @declined_amount = 112
     @credit_card = credit_card('4111111111111111', :verification_value => '999')
     @check = check(:bank_name => 'Greenery', :routing_number => '222371863')
+    @jimsmith = {
+      :customer_id => 'jimsmith@example.com',
+      :account_id  => '1',
+      :first_name  => 'Jim',
+      :last_name   => 'Smith'
+    }
     
     @options = { 
       :billing_address => address,
@@ -44,6 +50,7 @@ class RemoteSecureNetTest < Test::Unit::TestCase
     }
   end
   
+
   #
   # ACH Transactions
   #
@@ -117,13 +124,60 @@ class RemoteSecureNetTest < Test::Unit::TestCase
     assert_equal 'PREVIOUS TRANSACTION ID IS REQUIRED', void.message
   end
 
-
   # This is not failing like it supposed to 
   # def test_check_unsuccessful_purchase
   #   assert response = @gateway.purchase(@declined_amount, @check, @options)
   #   assert_failure response    
   #   assert_equal 'Declined  DO NOT HONOR', response.message
   # end
+  
+  def test_store_and_unstore_check
+    response = @gateway.store( @check, @jimsmith )
+    assert_success response
+    assert_equal 'New Account Added.', response.message
+
+    response = @gateway.unstore( @jimsmith[:customer_id] )
+    assert_success response
+    assert_equal 'Customer is Deleted', response.message
+  end
+
+  def test_store_purchase_and_unstore_check
+    @gateway.unstore( @jimsmith[:customer_id] )
+    
+    response = @gateway.store( @check, @jimsmith )
+    assert_success response
+    assert_equal 'New Account Added.', response.message
+    
+    @options.merge!(:customer_id => @jimsmith[:customer_id], :account_id => @jimsmith[:account_id])
+    assert purchase = @gateway.purchase(@amount, nil, @options)
+    assert_success purchase
+    assert_equal 'Approved', purchase.message
+
+    response = @gateway.unstore( @jimsmith[:customer_id] )
+    assert_success response
+    assert_equal 'Customer is Deleted', response.message
+  end
+
+  def test_store_purchase_void_and_unstore_check
+    @gateway.unstore( @jimsmith[:customer_id] )
+    
+    response = @gateway.store( @check, @jimsmith )
+    assert_success response
+    assert_equal 'New Account Added.', response.message
+    
+    @options.merge!(:customer_id => @jimsmith[:customer_id], :account_id => @jimsmith[:account_id])
+    assert purchase = @gateway.purchase(@amount, nil, @options)
+    assert_success purchase
+    assert_equal 'Approved', purchase.message
+
+    assert void = @gateway.void(@amount, purchase.authorization, nil, @options)
+    assert_success void
+    assert_equal 'Approved', void.message
+
+    response = @gateway.unstore( @jimsmith[:customer_id] )
+    assert_success response
+    assert_equal 'Customer is Deleted', response.message
+  end
   
   #
   # Credit Card Transactions
@@ -398,6 +452,80 @@ class RemoteSecureNetTest < Test::Unit::TestCase
     assert_failure void
     assert_equal 'PREVIOUS TRANSACTION ID IS REQUIRED', void.message
   end
+
+  def test_store_and_unstore_credit_card
+    response = @gateway.store( @credit_card, @jimsmith )
+    assert_success response
+    assert_equal 'New Account Added.', response.message
+
+    response = @gateway.unstore( @jimsmith[:customer_id] )
+    assert_success response
+    assert_equal 'Customer is Deleted', response.message
+  end
+
+  def test_store_purchase_and_unstore_credit_card
+    @gateway.unstore( @jimsmith[:customer_id] )
+    
+    response = @gateway.store( @credit_card, @jimsmith )
+    assert_success response
+    assert_equal 'New Account Added.', response.message
+    
+    @options.merge!(:customer_id => @jimsmith[:customer_id], :account_id => @jimsmith[:account_id])
+    assert purchase = @gateway.purchase(@amount, nil, @options)
+    assert_success purchase
+    assert_equal 'Approved', purchase.message
+
+    response = @gateway.unstore( @jimsmith[:customer_id] )
+    assert_success response
+    assert_equal 'Customer is Deleted', response.message
+  end
+
+  def test_store_purchase_credit_and_unstore_credit_card
+    @gateway.unstore( @jimsmith[:customer_id] )
+    
+    response = @gateway.store( @credit_card, @jimsmith )
+    assert_success response
+    assert_equal 'New Account Added.', response.message
+    
+    @options.merge!(:customer_id => @jimsmith[:customer_id], :account_id => @jimsmith[:account_id])
+    assert purchase = @gateway.purchase(@amount, nil, @options)
+    assert_success purchase
+    assert_equal 'Approved', purchase.message
+
+    settle_transactions
+
+    assert credit = @gateway.credit(@amount, purchase.authorization, nil, @options)
+    assert_success credit
+    assert_equal 'Approved', credit.message
+
+    response = @gateway.unstore( @jimsmith[:customer_id] )
+    assert_success response
+    assert_equal 'Customer is Deleted', response.message
+  end
+
+  def test_store_purchase_void_and_unstore_credit_card
+    @gateway.unstore( @jimsmith[:customer_id] )
+    
+    response = @gateway.store( @credit_card, @jimsmith )
+    assert_success response
+    assert_equal 'New Account Added.', response.message
+    
+    @options.merge!(:customer_id => @jimsmith[:customer_id], :account_id => @jimsmith[:account_id])
+    assert purchase = @gateway.purchase(@amount, nil, @options)
+    assert_success purchase
+    assert_equal 'Approved', purchase.message
+
+    assert void = @gateway.void(@amount, purchase.authorization, nil, @options)
+    assert_success void
+    assert_equal 'Approved', void.message
+
+    response = @gateway.unstore( @jimsmith[:customer_id] )
+    assert_success response
+    assert_equal 'Customer is Deleted', response.message
+  end
+
+
+
 
   def test_invalid_login
     gateway = SecureNetGateway.new(:login => '', :password => '')
