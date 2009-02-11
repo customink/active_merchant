@@ -31,7 +31,8 @@ class RemotePayflowTest < Test::Unit::TestCase
       #    problems with the ACH when testing. ...you shouldn't have to worry about 
       #    this error on the test server. ...to get your code to go through on the 
       #    test server, [pass] a description with your XML request."
-      :description => 'Widget'
+      # ** Note: This is handled in the class itself **
+      # :description => 'Widget'
     }
 
     # Do this because if you use the same account number over and over

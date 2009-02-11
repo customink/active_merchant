@@ -100,6 +100,8 @@ module ActiveMerchant #:nodoc:
       end
       
       def build_credit_card_or_check_request(action, money, credit_card_or_check, options)
+        options[:description] = 'Test' if test? && options[:description].blank?
+
         xml = Builder::XmlMarkup.new
         xml.tag! TRANSACTIONS[action] do
           xml.tag! 'PayData' do
