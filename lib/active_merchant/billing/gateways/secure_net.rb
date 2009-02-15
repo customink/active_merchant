@@ -41,16 +41,6 @@ module ActiveMerchant #:nodoc:
         auth_or_purchase('AUTH_CAPTURE', money, creditcard_or_check, transaction_id, options)
       end
             
-      def auth_or_purchase(type, money, creditcard_or_check, transaction_id = nil, options = {})
-        options, transaction_id = [transaction_id, nil] if transaction_id.is_a? Hash
-        xml_request(options) do |xml|
-          xml.Type(type)
-          xml.Amount(amount(money))
-          xml.Trans_id(transaction_id) unless transaction_id.nil?
-          add_tender(xml, creditcard_or_check) if creditcard_or_check
-        end
-      end
-
       def capture(money, transaction_id, creditcard, options = {})
         xml_request(options) do |xml|
           xml.Type('PRIOR_AUTH_CAPTURE')
@@ -78,14 +68,11 @@ module ActiveMerchant #:nodoc:
         end
       end
 
-      def credit_or_void(type, money, transaction_id, options = {})
-        xml_request(options) do |xml|
-          xml.Type(type)
-          xml.Amount(amount(money))
-          xml.Trans_id(transaction_id)
-        end
-      end
-      
+      # SecureNet creates two objects for a store, a Customer and an Account.  A Customer has many Accounts.  
+      #   options[:new_customer] => true 
+      #     creates the Customer object with id => options[:customer_id] and a Account object with id => options[:account_id]
+      #   options[:new_customer] => false
+      #     creates the Account object with id => options[:account_id] and adds it to the Customer object with id => options[:customer_id]
       def store( creditcard_or_check, options = {} )
         options.merge!( :new_customer => true ) { |key, oldval, newval| oldval.nil? ? newval : oldval }
         action = options[:new_customer] ? 'AddCustomerAndAccount' : 'AddAccount'
@@ -116,6 +103,24 @@ module ActiveMerchant #:nodoc:
       
       private
 
+      def auth_or_purchase(type, money, creditcard_or_check, transaction_id = nil, options = {})
+        options, transaction_id = [transaction_id, nil] if transaction_id.is_a? Hash
+        xml_request(options) do |xml|
+          xml.Type(type)
+          xml.Amount(amount(money))
+          xml.Trans_id(transaction_id) unless transaction_id.nil?
+          add_tender(xml, creditcard_or_check) if creditcard_or_check
+        end
+      end
+
+      def credit_or_void(type, money, transaction_id, options = {})
+        xml_request(options) do |xml|
+          xml.Type(type)
+          xml.Amount(amount(money))
+          xml.Trans_id(transaction_id)
+        end
+      end
+
       def xml_request( options = {} )
         action    = 'Process'
         namespace = 'https://gateway.securenet.com/'
@@ -143,6 +148,7 @@ module ActiveMerchant #:nodoc:
                 # SecureNet does not support Level2 data at this time for stored account transactions
                 # That is why it is only added for 'Process' actions (they don't use stored accounts)
                 add_level2( xml, options )
+                xml.Invoice_num options[:invoice_number]
               end
               yield( xml )
             end
