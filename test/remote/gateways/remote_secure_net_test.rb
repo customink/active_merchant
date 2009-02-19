@@ -130,6 +130,16 @@ class RemoteSecureNetTest < Test::Unit::TestCase
   #   assert_failure response    
   #   assert_equal 'Declined  DO NOT HONOR', response.message
   # end
+
+  def test_store_and_store_check
+    response = @gateway.store( @check, @jimsmith )
+
+    response = @gateway.store( @check, @jimsmith.merge!( :new_customer => false ) )
+    puts response.inspect
+
+    @gateway.unstore( @jimsmith[:customer_id] )
+  end
+
   
   def test_store_and_unstore_check
     response = @gateway.store( @check, @jimsmith )
