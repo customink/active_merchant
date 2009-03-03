@@ -74,8 +74,8 @@ module ActiveMerchant #:nodoc:
       #   options[:new_customer] => false
       #     creates the Account object with id => options[:account_id] and adds it to the Customer object with id => options[:customer_id]
       def store( creditcard_or_check, options = {} )
-        new_customer = options[:new_customer].nil? true : options[:new_customer]
-        new_account  = options[:new_account].nil?  true : options[:new_account]
+        new_customer = options[:new_customer].nil? ? true : options[:new_customer]
+        new_account  = options[:new_account].nil?  ? true : options[:new_account]
         
         action = if new_customer && new_account
           'AddCustomerAndAccount'
