@@ -37,17 +37,19 @@ class RemoteSecureNetTest < Test::Unit::TestCase
     @declined_amount = 112
     @credit_card = credit_card('4111111111111111', :verification_value => '999')
     @check = check(:bank_name => 'Greenery', :routing_number => '222371863')
-    @jimsmith = {
-      :customer_id => 'jimsmith@example.com',
-      :account_id  => '1',
-      :first_name  => 'Jim',
-      :last_name   => 'Smith'
-    }
-    
+
     @options = { 
       :billing_address => address,
       :description => 'Store Purchase'
     }
+    @jimsmith = {
+      :customer_id => 'jimsmith@example.com',
+      :account_id  => '1'
+    }.merge(@options)
+    @jimsmith[:billing_address].merge!(   
+      :first_name  => 'Jim',
+      :last_name   => 'Smith'
+    )
   end
   
 
@@ -131,16 +133,6 @@ class RemoteSecureNetTest < Test::Unit::TestCase
   #   assert_equal 'Declined  DO NOT HONOR', response.message
   # end
 
-  def test_store_and_store_check
-    response = @gateway.store( @check, @jimsmith )
-
-    response = @gateway.store( @check, @jimsmith.merge!( :new_customer => false ) )
-    puts response.inspect
-
-    @gateway.unstore( @jimsmith[:customer_id] )
-  end
-
-  
   def test_store_and_unstore_check
     response = @gateway.store( @check, @jimsmith )
     assert_success response
@@ -415,7 +407,7 @@ class RemoteSecureNetTest < Test::Unit::TestCase
     assert_equal 'Approved', purchase.message
     assert void = @gateway.void(@amount-100, purchase.authorization, @credit_card, @options)
     assert_failure void
-    assert_equal 'VOIDED AMOUNT CANNOT BE DIFFERENT THAN PREVIOUSLY AUTHORIZED AMOUNT', void.message
+    assert_equal 'AMOUNT CANNOT BE DIFFERENT THAN THE AUTHORIZED AMOUNT', void.message
   end
 
   def test_credit_card_purchase_and_void_amount_high
@@ -424,7 +416,7 @@ class RemoteSecureNetTest < Test::Unit::TestCase
     assert_equal 'Approved', purchase.message
     assert void = @gateway.void(@amount*2, purchase.authorization, @credit_card, @options)
     assert_failure void
-    assert_equal 'VOIDED AMOUNT CANNOT BE DIFFERENT THAN PREVIOUSLY AUTHORIZED AMOUNT', void.message
+    assert_equal 'AMOUNT CANNOT BE DIFFERENT THAN THE AUTHORIZED AMOUNT', void.message
   end
 
   def test_credit_card_capture_with_bogus_reference

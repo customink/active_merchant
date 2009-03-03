@@ -8,6 +8,10 @@ module ActiveMerchant #:nodoc:
       def payment_history
         @payment_history ||= @params['rp_payment_result'].collect{ |result| result.stringify_keys } rescue []
       end
+      
+      def settled?
+        @params['tr_status'] == '8'
+      end
     end
   end
 end

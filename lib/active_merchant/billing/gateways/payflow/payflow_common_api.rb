@@ -71,15 +71,6 @@ module ActiveMerchant #:nodoc:
         @options[:test] || super
       end
       
-      def inquiry(authorization, options = {})
-        xml = Builder::XmlMarkup.new
-        xml.Getstatus do
-          xml.PNRef authorization
-        end
-
-        commit( xml.target! )
-      end
-      
       def capture(money, authorization, options = {})
         request = build_reference_request(:capture, money, authorization, options)
         commit(request)
@@ -103,7 +94,8 @@ module ActiveMerchant #:nodoc:
             else
               xml.tag! 'Transactions' do
                 xml.tag! 'Transaction' do
-                  xml.tag! 'Verbosity', 'MEDIUM'
+                  # xml.tag! 'Verbosity', 'MEDIUM'
+                  xml.tag! 'Verbosity', 'HIGH'
                   xml << body
                 end
               end
@@ -205,10 +197,11 @@ module ActiveMerchant #:nodoc:
     	end
     	
     	def commit(request_body, request_type = nil)
-        request = build_request(request_body, request_type)
+        puts request = build_request(request_body, request_type)
         headers = build_headers(request.size)
         
-        response = parse(ssl_post(test? ? TEST_URL : LIVE_URL, request, headers))
+        puts response = ssl_post(test? ? TEST_URL : LIVE_URL, request, headers)
+        response = parse(response)
 
     	  build_response(response[:result] == "0", response[:message], response,
     	    :test => test?,

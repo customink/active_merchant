@@ -40,7 +40,7 @@ class RemotePayflowTest < Test::Unit::TestCase
     @check = check(:account_number => Time.now.strftime('%Y%m%d%H%I%S'))
 
   end
-  
+
   def test_successful_purchase_for_credit_card
     assert response = @gateway.purchase(100000, @credit_card, @options)
     assert_approved response

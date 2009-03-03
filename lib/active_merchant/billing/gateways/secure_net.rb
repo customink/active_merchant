@@ -74,8 +74,8 @@ module ActiveMerchant #:nodoc:
       #   options[:new_customer] => false
       #     creates the Account object with id => options[:account_id] and adds it to the Customer object with id => options[:customer_id]
       def store( creditcard_or_check, options = {} )
-        options.merge!( :new_customer => true, :new_account => true ) { |key, oldval, newval| oldval.nil? ? newval : oldval }
-        new_customer, new_account = options.values_at( :new_customer, :new_account )
+        new_customer = options[:new_customer].nil? true : options[:new_customer]
+        new_account  = options[:new_account].nil?  true : options[:new_account]
         
         action = if new_customer && new_account
           'AddCustomerAndAccount'
@@ -89,7 +89,7 @@ module ActiveMerchant #:nodoc:
           xml.tag!( action, 'xmlns' => 'https://gateway.securenet.com/sh/' ) do
             xml.SecurenetID  @login
             xml.SecureKey    @password
-            add_customer( xml, options ) if options[:new_customer]
+            add_customer( xml, options ) if action =~ /Customer/
             add_account( xml, creditcard_or_check, options )
           end
         end

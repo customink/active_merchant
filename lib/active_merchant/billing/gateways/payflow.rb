@@ -13,6 +13,15 @@ module ActiveMerchant #:nodoc:
       self.homepage_url = 'https://www.paypal.com/cgi-bin/webscr?cmd=_payflow-pro-overview-outside'
       self.display_name = 'PayPal Payflow Pro'
 
+      def inquiry(authorization, options = {})
+        xml = Builder::XmlMarkup.new
+        xml.GetStatus do
+          xml.PNRef authorization
+        end
+
+        commit( xml.target! )
+      end
+
       # Note: Payflow does not support this for ACH transactions
       def authorize(money, cc_or_ref, options = {})
         raise ActiveMerchantError, 'Illegal action: cannot perform an authorization for ACH' if cc_or_ref.class.to_s =~ /Check$/
